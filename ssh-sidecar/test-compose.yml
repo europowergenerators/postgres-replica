@@ -1,0 +1,22 @@
+version: '3'
+  
+services:
+  ssh-sidecar:
+    build:
+      context: .
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    # Command for port forwarding Local (-L) to Remote
+    # -L *:5432:127.0.0.1:5432
+    # -l root
+    # -p 2223
+    # [host]
+    command: |
+      -L *:5432:127.0.0.1:5432
+      -l root
+      -p 2223
+      europowergenerators-odoo-v14-879f7660d6c8.victhorious.com

@@ -1,0 +1,53 @@
+version: '3'
+
+networks:
+  backend:
+    driver: bridge
+    name: Odoo_DB-Replicator
+  
+services:
+  ssh-sidecar:
+    image: ghcr.io/europowergenerators/ssh-sidecar:master
+    networks:
+      backend:
+        aliases:
+          - master
+    expose:
+      - '5432'
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    # Command for port forwarding Local (-L) to Remote
+    # -L *:5432:127.0.0.1:5432
+    # -l root
+    # -p 2223
+    # [host]
+    command: ${ENV_SSH_COMMAND}
+  
+  slave-odoo:
+    image: ghcr.io/europowergenerators/slave-postgres-v13:master
+    depends_on:
+      - ssh-sidecar
+    networks:
+      - backend
+    ports:
+      # - '5001:5432'
+      - '${ENV_REPLICATION_PORT}:5432'
+    healthcheck:
+      # NOTE; || kill 1 stops the postgres process
+      test: pg_isready -d postgres && pgrep -af 'walreceiver streaming' || kill 1
+      interval: 20s
+      retries: 2
+      start_period: 20s
+      timeout: 10s
+    environment:
+      # Required for the container to start, but will be removed after slave setup
+      POSTGRES_PASSWORD: vaXXtzYi6F3UpcHCv
+      REPLICATE_FROM_HOST: master
+      # POSTGRES_REPLICATION_USER: replication_ep_onsite
+      POSTGRES_REPLICATION_USER: ${ENV_REPLICATION_USER}
+      # POSTGRES_REPLICATION_SLOT: replication_slot_ep
+      POSTGRES_REPLICATION_SLOT: ${ENV_REPLICATION_SLOT}
