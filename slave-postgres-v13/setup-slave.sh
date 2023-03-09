@@ -9,6 +9,7 @@ docker_temp_server_start() {
 	PGUSER="${PGUSER:-$POSTGRES_USER}" \
     PGPASSWORD="${COPY_PGPASSWORD}" \
 	pg_ctl -D "$PGDATA" -w start
+    unset PGPASSWORD
 }
 
 # stop postgresql server after done setting up user and running scripts
@@ -16,6 +17,7 @@ docker_temp_server_stop() {
 	PGUSER="${PGUSER:-postgres}" \
     PGPASSWORD="${COPY_PGPASSWORD}" \
 	pg_ctl -D "$PGDATA" -m fast -w stop
+    unset PGPASSWORD
 }
 
 echo "Script running as: $(whoami)"
