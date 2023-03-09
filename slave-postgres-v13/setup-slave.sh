@@ -23,22 +23,22 @@ docker_temp_server_stop() {
 echo "Script running as: $(whoami)"
 
 # ERROR; This script is called with PGPASSWORD set!
-# PGPASSWORD has higher priority, so it needs to be unset for this script and PG_PASSFILE will take effect
+# PGPASSWORD has higher priority, so it needs to be unset for this script and PGPASSFILE will take effect
 unset PGPASSWORD
-export PG_PASSFILE=/config/.pgpass
+export PGPASSFILE=/config/.pgpass
 
 # WARN; head doesn't consume the full pipe, which is as intended. Not consuming the full pipe produces
 # a pipefail returncode, so we have to disable pipefail propagation every time using head
 set +o pipefail
-if [ -s "${PG_PASSFILE}" ]
+if [ -s "${PGPASSFILE}" ]
 then
     # File exists and is not empty
-    POSTGRES_REPLICATION_USER=$(cat "${PG_PASSFILE}" | head -n 1 | cut -d ':' -f 4)
-    POSTGRES_REPLICATION_PASSWORD=$(cat "${PG_PASSFILE}" | head -n 1 | cut -d ':' -f 5)
+    POSTGRES_REPLICATION_USER=$(cat "${PGPASSFILE}" | head -n 1 | cut -d ':' -f 4)
+    POSTGRES_REPLICATION_PASSWORD=$(cat "${PGPASSFILE}" | head -n 1 | cut -d ':' -f 5)
 else
     POSTGRES_REPLICATION_PASSWORD=$(cat /dev/random | tr -dc '[:alnum:]' | head -c 20)
-    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PG_PASSFILE}"
-    chmod 0600 "${PG_PASSFILE}"    
+    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PGPASSFILE}"
+    chmod 0600 "${PGPASSFILE}"    
 fi
 # NOTE; Re-enable pipefail propagation, see note above
 set -o pipefail
@@ -124,10 +124,10 @@ hot_standby = on
 EOCONF
 
 # WARN; If $PGDATA and ~(homedir) overlap, we might have removed our pgpass file around pg_basebackup
-if [ ! -f "${PG_PASSFILE}" ]
+if [ ! -f "${PGPASSFILE}" ]
 then
-    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PG_PASSFILE}"
-    chmod 0600 "${PG_PASSFILE}"
+    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PGPASSFILE}"
+    chmod 0600 "${PGPASSFILE}"
 fi
 
 # WORKAROUND; Depending on the master server, pg_*.conf files get removed during pg_basebackup
