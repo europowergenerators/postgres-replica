@@ -99,7 +99,7 @@ cp "${PGDATA}/pg_hba.conf" "/tmp/pg_hba.conf"
 
 # NOTE; pg_basebackup will copy over _all master configuration_ and write out the replication configuration
 rm -rf ${PGDATA}/*
-until pg_basebackup --write-recovery-conf -X stream --checkpoint=fast --slot="${REPLICATION_SLOT}" \
+until pg_basebackup --write-recovery-conf -X stream --checkpoint=fast --slot="${POSTGRES_REPLICATION_SLOT}" \
         -h "${REPLICATE_FROM_HOST}" -D "${PGDATA}" -U "${POSTGRES_REPLICATION_USER}" -w  -vP
 do
     echo "Waiting for master to connect..."
