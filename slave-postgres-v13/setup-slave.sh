@@ -121,6 +121,8 @@ EOCONF
 cat >> "${PGDATA}/conf.d/replica.conf" <<EOCONF
 # Hot standby allows querying this server
 hot_standby = on
+# Allow external connections
+listen_addresses = '*'
 EOCONF
 
 # WARN; If $PGDATA and ~(homedir) overlap, we might have removed our pgpass file around pg_basebackup
