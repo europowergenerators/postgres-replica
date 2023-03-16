@@ -38,7 +38,7 @@ services:
       - '${ENV_REPLICATION_PORT}:5432'
     healthcheck:
       # NOTE; || kill 1 stops the postgres process
-      test: pg_isready -d postgres && pgrep -af 'walreceiver streaming' || kill 1
+      test: pg_isready -U postgres -d postgres && pgrep -af 'walreceiver streaming' || kill 1
       interval: 20s
       retries: 2
       start_period: 20s
