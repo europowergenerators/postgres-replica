@@ -2,13 +2,14 @@
 set -euo pipefail
 
 COPY_PGPASSWORD="${PGPASSWORD:-}"
-POSTGRES_REPLICATION_SLOT="${POSTGRES_REPLICATION_SLOT:replication_slot_ep}"
-POSTGRES_REPLICATION_USER="${POSTGRES_REPLICATION_USER:replication_ep_onsite}"
+POSTGRES_REPLICATION_SLOT="${POSTGRES_REPLICATION_SLOT:-replication_slot_ep}"
+POSTGRES_REPLICATION_USER="${POSTGRES_REPLICATION_USER:-replication_ep_onsite}"
 
 docker_temp_server_start() {
 	PGUSER="${PGUSER:-$POSTGRES_USER}" \
     PGPASSWORD="${COPY_PGPASSWORD}" \
 	pg_ctl -D "$PGDATA" -w start
+    unset PGPASSWORD
 }
 
 # stop postgresql server after done setting up user and running scripts
@@ -16,27 +17,28 @@ docker_temp_server_stop() {
 	PGUSER="${PGUSER:-postgres}" \
     PGPASSWORD="${COPY_PGPASSWORD}" \
 	pg_ctl -D "$PGDATA" -m fast -w stop
+    unset PGPASSWORD
 }
 
 echo "Script running as: $(whoami)"
 
 # ERROR; This script is called with PGPASSWORD set!
-# PGPASSWORD has higher priority, so it needs to be unset for this script and PG_PASSFILE will take effect
+# PGPASSWORD has higher priority, so it needs to be unset for this script and PGPASSFILE will take effect
 unset PGPASSWORD
-export PG_PASSFILE=/config/.pgpass
+export PGPASSFILE=/config/.pgpass
 
 # WARN; head doesn't consume the full pipe, which is as intended. Not consuming the full pipe produces
 # a pipefail returncode, so we have to disable pipefail propagation every time using head
 set +o pipefail
-if [ -s "${PG_PASSFILE}" ]
+if [ -s "${PGPASSFILE}" ]
 then
     # File exists and is not empty
-    POSTGRES_REPLICATION_USER=$(cat "${PG_PASSFILE}" | head -n 1 | cut -d ':' -f 4)
-    POSTGRES_REPLICATION_PASSWORD=$(cat "${PG_PASSFILE}" | head -n 1 | cut -d ':' -f 5)
+    POSTGRES_REPLICATION_USER=$(cat "${PGPASSFILE}" | head -n 1 | cut -d ':' -f 4)
+    POSTGRES_REPLICATION_PASSWORD=$(cat "${PGPASSFILE}" | head -n 1 | cut -d ':' -f 5)
 else
     POSTGRES_REPLICATION_PASSWORD=$(cat /dev/random | tr -dc '[:alnum:]' | head -c 20)
-    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PG_PASSFILE}"
-    chmod 0600 "${PG_PASSFILE}"    
+    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PGPASSFILE}"
+    chmod 0600 "${PGPASSFILE}"    
 fi
 # NOTE; Re-enable pipefail propagation, see note above
 set -o pipefail
@@ -47,11 +49,15 @@ then
     exit 1
 fi
 
-until pg_isready -t 1 -h "${REPLICATE_FROM_HOST}"
-do
-    echo "Waiting for master to ping..."
-    sleep 5s
-done
+pg_isready -t 1 -h "${REPLICATE_FROM_HOST}"
+if [ $? -ne 0 ]
+then
+    echo "Waiting for master to respond..."    
+    until pg_isready -t 1 -h "${REPLICATE_FROM_HOST}"
+    do
+        sleep 1s
+    done
+fi
 
 echo
 echo "========== Master setup =========="
@@ -95,7 +101,7 @@ cp "${PGDATA}/pg_hba.conf" "/tmp/pg_hba.conf"
 
 # NOTE; pg_basebackup will copy over _all master configuration_ and write out the replication configuration
 rm -rf ${PGDATA}/*
-until pg_basebackup --write-recovery-conf -X stream --checkpoint=fast --slot="${REPLICATION_SLOT}" \
+until pg_basebackup --write-recovery-conf -X stream --checkpoint=fast --slot="${POSTGRES_REPLICATION_SLOT}" \
         -h "${REPLICATE_FROM_HOST}" -D "${PGDATA}" -U "${POSTGRES_REPLICATION_USER}" -w  -vP
 do
     echo "Waiting for master to connect..."
@@ -115,13 +121,15 @@ EOCONF
 cat >> "${PGDATA}/conf.d/replica.conf" <<EOCONF
 # Hot standby allows querying this server
 hot_standby = on
+# Allow external connections
+listen_addresses = '*'
 EOCONF
 
 # WARN; If $PGDATA and ~(homedir) overlap, we might have removed our pgpass file around pg_basebackup
-if [ ! -f "${PG_PASSFILE}" ]
+if [ ! -f "${PGPASSFILE}" ]
 then
-    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PG_PASSFILE}"
-    chmod 0600 "${PG_PASSFILE}"
+    echo "*:*:*:${POSTGRES_REPLICATION_USER}:${POSTGRES_REPLICATION_PASSWORD}" > "${PGPASSFILE}"
+    chmod 0600 "${PGPASSFILE}"
 fi
 
 # WORKAROUND; Depending on the master server, pg_*.conf files get removed during pg_basebackup
