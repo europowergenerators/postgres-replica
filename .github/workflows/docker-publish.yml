@@ -26,6 +26,8 @@ jobs:
             image: ghcr.io/europowergenerators/ssh-sidecar
           - context: ./slave-postgres-v13
             image: ghcr.io/europowergenerators/slave-postgres-v13
+          - context: ./slave-postgres-v10
+            image: ghcr.io/europowergenerators/slave-postgres-v10
 
     steps:
       - name: Checkout repository
