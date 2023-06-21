@@ -129,6 +129,8 @@ cat >> "${PGDATA}/conf.d/replica.conf" <<EOCONF
 hot_standby = on
 # Allow external connections
 listen_addresses = '*'
+# ERROR; 'max_connections' value must be equal or higher than the value on master server!
+max_connections = 200
 EOCONF
 
 # WARN; If $PGDATA and ~(homedir) overlap, we might have removed our pgpass file around pg_basebackup
