@@ -108,6 +108,12 @@ do
     sleep 5s
 done
 
+if [ ! -f "${PGDATA}/PG_VERSION" ]; then
+    rm -rf "${PGDATA}/*"
+    echo "Invalid database copy! Removed the PGDATA folder '$PGDATA' contents and exiting"
+    exit 1
+fi
+
 # Notify current server as standby
 touch "${PGDATA}/standby.signal"
 # Store additional configuration outside of the postgresql
