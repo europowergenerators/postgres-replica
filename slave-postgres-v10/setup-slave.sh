@@ -131,6 +131,10 @@ hot_standby = on
 listen_addresses = '*'
 # ERROR; 'max_connections' value must be equal or higher than the value on master server!
 max_connections = 200
+# Allow replication delay to complete running+conflicting transactions.
+# This lowers the error rate with description '40001: canceling statement due to conflict with recovery.'
+max_standby_archive_delay = 900s
+max_standby_streaming_delay = 900s
 EOCONF
 
 # WARN; If $PGDATA and ~(homedir) overlap, we might have removed our pgpass file around pg_basebackup
